@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ProvisionStore"
 include(":app")
+include(":shared")
