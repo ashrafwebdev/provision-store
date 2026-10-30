@@ -12,6 +12,8 @@ class ShopRepository(private val db: AppDatabase) {
     private val customerDao = db.customerDao()
     private val saleDao = db.saleDao()
     private val ledgerDao = db.ledgerDao()
+    private val purchaseDao = db.purchaseDao()
+    private val expenseDao = db.expenseDao()
 
     val items: Flow<List<Item>> = itemDao.observeAll()
     val customers: Flow<List<CustomerWithBalance>> = customerDao.observeWithBalance()
@@ -20,6 +22,9 @@ class ShopRepository(private val db: AppDatabase) {
     fun linesBetween(from: Long, to: Long): Flow<List<SaleLine>> = saleDao.observeLinesBetween(from, to)
     fun paymentsBetween(from: Long, to: Long): Flow<List<LedgerEntry>> =
         ledgerDao.observePaymentsBetween(from, to)
+
+    fun purchasesBetween(from: Long, to: Long): Flow<List<Purchase>> = purchaseDao.observeBetween(from, to)
+    fun expensesBetween(from: Long, to: Long): Flow<List<Expense>> = expenseDao.observeBetween(from, to)
 
     fun ledgerFor(customerId: Long): Flow<List<LedgerEntry>> = ledgerDao.observeFor(customerId)
 
@@ -85,6 +90,45 @@ class ShopRepository(private val db: AppDatabase) {
             }
             saleId
         }
+
+    /** A day-book sale: just the total, no items. Credit sales are added to the customer's khata. */
+    suspend fun addQuickSale(amount: Long, mode: PaymentMode, customerId: Long?, at: Long) {
+        db.withTransaction {
+            val saleId = saleDao.insertSale(
+                Sale(createdAt = at, total = amount, paymentMode = mode.name, customerId = customerId)
+            )
+            if (mode == PaymentMode.CREDIT && customerId != null) {
+                ledgerDao.insert(
+                    LedgerEntry(
+                        customerId = customerId,
+                        createdAt = at,
+                        amount = amount,
+                        note = "Credit sale #$saleId",
+                    )
+                )
+            }
+        }
+    }
+
+    /** Removes a day-book sale and, for credit sales, its khata entry. */
+    suspend fun deleteQuickSale(saleId: Long) {
+        db.withTransaction {
+            ledgerDao.deleteByNote("Credit sale #$saleId")
+            saleDao.deleteSale(saleId)
+        }
+    }
+
+    suspend fun addPurchase(amount: Long, supplier: String, note: String, at: Long) {
+        purchaseDao.insert(Purchase(createdAt = at, amount = amount, supplier = supplier, note = note))
+    }
+
+    suspend fun deletePurchase(id: Long) = purchaseDao.delete(id)
+
+    suspend fun addExpense(category: String, amount: Long, note: String, at: Long) {
+        expenseDao.insert(Expense(createdAt = at, category = category, amount = amount, note = note))
+    }
+
+    suspend fun deleteExpense(id: Long) = expenseDao.delete(id)
 
     suspend fun billText(saleId: Long): String {
         val sale = saleDao.getSale(saleId) ?: return ""

@@ -14,7 +14,6 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -29,7 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -55,35 +54,37 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class Tab(val label: String, val icon: ImageVector)
-
 // Icons are from Material Icons (Apache 2.0).
-private val tabs = listOf(
-    Tab("Sell", Icons.Filled.ShoppingCart),
-    Tab("Items", Icons.Filled.Category),
-    Tab("Stock", Icons.Filled.Inventory2),
-    Tab("Khata", Icons.Filled.Book),
-    Tab("Today", Icons.Filled.CalendarToday),
-)
+private enum class Screen(val label: String, val icon: ImageVector, val needsItems: Boolean) {
+    SELL("Sell", Icons.Filled.ShoppingCart, needsItems = true),
+    ITEMS("Items", Icons.Filled.Category, needsItems = true),
+    STOCK("Stock", Icons.Filled.Inventory2, needsItems = true),
+    KHATA("Khata", Icons.Filled.Book, needsItems = false),
+    DAY("Day", Icons.Filled.CalendarToday, needsItems = false),
+}
 
 @Composable
 fun AppRoot(vm: ShopViewModel = viewModel()) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var current by rememberSaveable { mutableStateOf(Screen.DAY) }
     val pending by vm.pendingUpdate.collectAsState()
     val progress by vm.downloadProgress.collectAsState()
+    val trackItems by vm.trackItems.collectAsState()
 
     // Look for an update each time the app opens. Stay quiet if there is none.
     LaunchedEffect(Unit) { vm.checkForUpdates(silent = true) }
 
+    val visible = Screen.entries.filter { trackItems || !it.needsItems }
+    val shown = if (current in visible) current else Screen.DAY
+
     Scaffold(
         bottomBar = {
             NavigationBar {
-                tabs.forEachIndexed { index, item ->
+                visible.forEach { screen ->
                     NavigationBarItem(
-                        selected = tab == index,
-                        onClick = { tab = index },
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) },
+                        selected = shown == screen,
+                        onClick = { current = screen },
+                        icon = { Icon(screen.icon, contentDescription = screen.label) },
+                        label = { Text(screen.label) },
                     )
                 }
             }
@@ -99,12 +100,12 @@ fun AppRoot(vm: ShopViewModel = viewModel()) {
                 }
             }
             Box(Modifier.weight(1f)) {
-                when (tab) {
-                    0 -> SalesScreen(vm)
-                    1 -> ItemsScreen(vm)
-                    2 -> StockScreen(vm)
-                    3 -> KhataScreen(vm)
-                    else -> TodayScreen(vm)
+                when (shown) {
+                    Screen.SELL -> SalesScreen(vm)
+                    Screen.ITEMS -> ItemsScreen(vm)
+                    Screen.STOCK -> StockScreen(vm)
+                    Screen.KHATA -> KhataScreen(vm)
+                    Screen.DAY -> TodayScreen(vm)
                 }
             }
         }

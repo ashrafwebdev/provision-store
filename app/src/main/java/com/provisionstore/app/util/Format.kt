@@ -26,8 +26,16 @@ fun parseQty(text: String): Double? = text.trim().toDoubleOrNull()
 fun dateTime(millis: Long): String =
     SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()).format(millis)
 
-fun todayLabel(): String =
-    SimpleDateFormat("EEEE, dd MMM yyyy", Locale.getDefault()).format(System.currentTimeMillis())
+fun timeOnly(millis: Long): String =
+    SimpleDateFormat("hh:mm a", Locale.getDefault()).format(millis)
+
+/** "Today" for the current day, otherwise the full date. */
+fun dayLabel(dayStart: Long): String =
+    if (dayStart == startOfToday()) {
+        "Today"
+    } else {
+        SimpleDateFormat("EEEE, dd MMM yyyy", Locale.getDefault()).format(dayStart)
+    }
 
 fun startOfToday(): Long = Calendar.getInstance().apply {
     set(Calendar.HOUR_OF_DAY, 0)

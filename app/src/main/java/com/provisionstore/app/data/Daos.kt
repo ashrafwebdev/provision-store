@@ -53,6 +53,9 @@ interface SaleDao {
     @Insert
     suspend fun insertLines(lines: List<SaleLine>)
 
+    @Query("DELETE FROM sales WHERE id = :id")
+    suspend fun deleteSale(id: Long)
+
     @Query("SELECT * FROM sales WHERE id = :id")
     suspend fun getSale(id: Long): Sale?
 
@@ -74,6 +77,9 @@ interface LedgerDao {
     @Insert
     suspend fun insert(entry: LedgerEntry): Long
 
+    @Query("DELETE FROM ledger WHERE note = :note")
+    suspend fun deleteByNote(note: String)
+
     @Query("SELECT * FROM ledger WHERE customerId = :customerId ORDER BY createdAt DESC")
     fun observeFor(customerId: Long): Flow<List<LedgerEntry>>
 
@@ -85,4 +91,28 @@ interface LedgerDao {
 
     @Query("SELECT * FROM ledger WHERE amount < 0 AND createdAt BETWEEN :from AND :to")
     fun observePaymentsBetween(from: Long, to: Long): Flow<List<LedgerEntry>>
+}
+
+@Dao
+interface PurchaseDao {
+    @Insert
+    suspend fun insert(purchase: Purchase): Long
+
+    @Query("DELETE FROM purchases WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT * FROM purchases WHERE createdAt BETWEEN :from AND :to ORDER BY createdAt DESC")
+    fun observeBetween(from: Long, to: Long): Flow<List<Purchase>>
+}
+
+@Dao
+interface ExpenseDao {
+    @Insert
+    suspend fun insert(expense: Expense): Long
+
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    @Query("SELECT * FROM expenses WHERE createdAt BETWEEN :from AND :to ORDER BY createdAt DESC")
+    fun observeBetween(from: Long, to: Long): Flow<List<Expense>>
 }

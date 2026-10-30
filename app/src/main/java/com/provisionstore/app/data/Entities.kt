@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 import kotlin.math.roundToLong
 
 // Money is stored in paise (1 rupee = 100) to avoid rounding errors.
-// Quantities are plain numbers (pc, kg, litre...).
+// Quantities are plain numbers (kg, litre, pc...), stored in those units.
 
 enum class PaymentMode { CASH, UPI, CREDIT }
 
@@ -29,6 +29,7 @@ data class Customer(
     val phone: String,
 )
 
+/** A sale. Sales made from the Sell screen have lines; quick day-book sales have none. */
 @Entity(tableName = "sales")
 data class Sale(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -66,6 +67,26 @@ data class LedgerEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val customerId: Long,
     val createdAt: Long,
+    val amount: Long,
+    val note: String,
+)
+
+/** Goods bought from a supplier, entered as a total. Not tied to items. */
+@Entity(tableName = "purchases")
+data class Purchase(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val createdAt: Long,
+    val amount: Long,
+    val supplier: String,
+    val note: String,
+)
+
+/** Money spent running the shop: rent, electricity, salary and so on. */
+@Entity(tableName = "expenses")
+data class Expense(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val createdAt: Long,
+    val category: String,
     val amount: Long,
     val note: String,
 )

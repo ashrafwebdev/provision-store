@@ -1,6 +1,7 @@
 package com.provisionstore.app.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.provisionstore.app.BuildConfig
@@ -14,23 +15,31 @@ import com.provisionstore.app.data.ShopRepository
 import com.provisionstore.app.util.DAY_MS
 import com.provisionstore.app.util.startOfToday
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class ShopViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = ShopRepository(AppDatabase.get(app))
+    private val prefs = app.getSharedPreferences("shop", Context.MODE_PRIVATE)
 
     val items = repo.items
     val customers = repo.customers
 
-    // Today's figures cover the day the screen was opened.
-    private val dayStart = startOfToday()
-    private val dayEnd = dayStart + DAY_MS
-    val todaySales = repo.salesBetween(dayStart, dayEnd)
-    val todayLines = repo.linesBetween(dayStart, dayEnd)
-    val todayPayments = repo.paymentsBetween(dayStart, dayEnd)
+    /** Off hides the Items and Stock screens, for a shop that only keeps a day book. */
+    val trackItems = MutableStateFlow(prefs.getBoolean(KEY_TRACK_ITEMS, true))
+
+    /** Start of the day shown on the Day screen. */
+    val selectedDay = MutableStateFlow(startOfToday())
+    val daySales = selectedDay.flatMapLatest { repo.salesBetween(it, it + DAY_MS) }
+    val dayLines = selectedDay.flatMapLatest { repo.linesBetween(it, it + DAY_MS) }
+    val dayPayments = selectedDay.flatMapLatest { repo.paymentsBetween(it, it + DAY_MS) }
+    val dayPurchases = selectedDay.flatMapLatest { repo.purchasesBetween(it, it + DAY_MS) }
+    val dayExpenses = selectedDay.flatMapLatest { repo.expensesBetween(it, it + DAY_MS) }
 
     val pendingUpdate = MutableStateFlow<UpdateInfo?>(null)
     val updateStatus = MutableStateFlow("")
@@ -42,6 +51,20 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
     val downloadProgress = MutableStateFlow<Float?>(null)
 
     fun ledgerFor(customerId: Long) = repo.ledgerFor(customerId)
+
+    fun setTrackItems(on: Boolean) {
+        prefs.edit().putBoolean(KEY_TRACK_ITEMS, on).apply()
+        trackItems.value = on
+    }
+
+    /** Moves the Day screen by [days]. Stops at today; no entries are added to future days. */
+    fun shiftDay(days: Int) {
+        if (days > 0 && selectedDay.value >= startOfToday()) return
+        selectedDay.value += days * DAY_MS
+    }
+
+    /** Right now on today, or the same time of day on an earlier day. */
+    private fun entryTime(): Long = selectedDay.value + (System.currentTimeMillis() - startOfToday())
 
     fun saveItem(item: Item) = viewModelScope.launch { repo.saveItem(item) }
 
@@ -57,6 +80,21 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
 
     fun checkout(cart: List<CartLine>, mode: PaymentMode, customerId: Long?, onSaved: (Long) -> Unit) =
         viewModelScope.launch { onSaved(repo.checkout(cart, mode, customerId)) }
+
+    fun addQuickSale(amount: Long, mode: PaymentMode, customerId: Long?) =
+        viewModelScope.launch { repo.addQuickSale(amount, mode, customerId, entryTime()) }
+
+    fun deleteQuickSale(saleId: Long) = viewModelScope.launch { repo.deleteQuickSale(saleId) }
+
+    fun addPurchase(amount: Long, supplier: String, note: String) =
+        viewModelScope.launch { repo.addPurchase(amount, supplier, note, entryTime()) }
+
+    fun deletePurchase(id: Long) = viewModelScope.launch { repo.deletePurchase(id) }
+
+    fun addExpense(category: String, amount: Long, note: String) =
+        viewModelScope.launch { repo.addExpense(category, amount, note, entryTime()) }
+
+    fun deleteExpense(id: Long) = viewModelScope.launch { repo.deleteExpense(id) }
 
     suspend fun billText(saleId: Long): String = repo.billText(saleId)
 
@@ -107,5 +145,9 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
                 downloadProgress.value = null
             }
         }
+    }
+
+    private companion object {
+        const val KEY_TRACK_ITEMS = "track_items"
     }
 }
