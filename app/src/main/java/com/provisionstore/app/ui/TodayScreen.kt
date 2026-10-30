@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.provisionstore.app.BuildConfig
@@ -169,18 +171,9 @@ fun TodayScreen(vm: ShopViewModel) {
 
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { addingSale = true }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Filled.ShoppingCart, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Sale")
-            }
-            Button(onClick = { addingPurchase = true }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Filled.LocalShipping, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Purchase")
-            }
-            Button(onClick = { addingExpense = true }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Filled.Receipt, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Expense")
-            }
+            ActionButton(Icons.Filled.ShoppingCart, "Sale", { addingSale = true }, Modifier.weight(1f))
+            ActionButton(Icons.Filled.LocalShipping, "Purchase", { addingPurchase = true }, Modifier.weight(1f))
+            ActionButton(Icons.Filled.Receipt, "Expense", { addingExpense = true }, Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(16.dp))
@@ -364,19 +357,29 @@ fun TodayScreen(vm: ShopViewModel) {
     }
 }
 
+/** A button with the icon above a single-line label, so long words don't wrap. */
+@Composable
+private fun ActionButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 12.dp),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = null)
+            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        }
+    }
+}
+
 @Composable
 private fun StatLine(label: String, value: String, big: Boolean = false) {
+    val style = if (big) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge
     Row(
         Modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            label,
-            style = if (big) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge,
-        )
-        Text(
-            value,
-            style = if (big) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge,
-        )
+        Text(label, style = style, modifier = Modifier.weight(1f).padding(end = 8.dp))
+        Text(value, style = style, maxLines = 1)
     }
 }
