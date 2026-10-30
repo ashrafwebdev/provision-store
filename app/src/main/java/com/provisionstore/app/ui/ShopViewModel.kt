@@ -3,6 +3,7 @@ package com.provisionstore.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.provisionstore.app.BuildConfig
 import com.provisionstore.app.UpdateChecker
 import com.provisionstore.app.UpdateInfo
 import com.provisionstore.app.data.AppDatabase
@@ -34,6 +35,12 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
     val pendingUpdate = MutableStateFlow<UpdateInfo?>(null)
     val updateStatus = MutableStateFlow("")
 
+    /** True while the app is asking GitHub for the latest release. */
+    val checking = MutableStateFlow(false)
+
+    /** null when idle, -1 while downloading with unknown size, otherwise 0..1. */
+    val downloadProgress = MutableStateFlow<Float?>(null)
+
     fun ledgerFor(customerId: Long) = repo.ledgerFor(customerId)
 
     fun saveItem(item: Item) = viewModelScope.launch { repo.saveItem(item) }
@@ -56,12 +63,22 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun statementText(customerId: Long): String = repo.statementText(customerId)
 
     fun checkForUpdates(silent: Boolean) {
+        if (checking.value) return
         viewModelScope.launch {
-            val update = withContext(Dispatchers.IO) { UpdateChecker.checkForUpdate() }
-            if (update != null) {
-                pendingUpdate.value = update
-            } else if (!silent) {
-                updateStatus.value = "No update available."
+            checking.value = true
+            if (!silent) updateStatus.value = "Checking for updates..."
+            try {
+                val update = withContext(Dispatchers.IO) { UpdateChecker.checkForUpdate() }
+                if (update != null) {
+                    pendingUpdate.value = update
+                    updateStatus.value = ""
+                } else if (!silent) {
+                    updateStatus.value = "You have the latest version (${BuildConfig.VERSION_NAME})."
+                }
+            } catch (e: Exception) {
+                if (!silent) updateStatus.value = "Could not check for updates: ${e.message ?: "no connection"}"
+            } finally {
+                checking.value = false
             }
         }
     }
@@ -73,13 +90,21 @@ class ShopViewModel(app: Application) : AndroidViewModel(app) {
     fun installUpdate(update: UpdateInfo) {
         pendingUpdate.value = null
         viewModelScope.launch {
-            updateStatus.value = "Downloading update..."
+            downloadProgress.value = 0f
+            updateStatus.value = "Downloading version ${update.versionCode}..."
             try {
-                val apk = withContext(Dispatchers.IO) { UpdateChecker.download(getApplication(), update) }
+                val apk = withContext(Dispatchers.IO) {
+                    UpdateChecker.download(getApplication(), update) { fraction ->
+                        downloadProgress.value = fraction
+                    }
+                }
+                updateStatus.value = "Download complete. Opening the installer..."
                 UpdateChecker.install(getApplication(), apk)
                 updateStatus.value = ""
             } catch (e: Exception) {
                 updateStatus.value = e.message ?: "Update failed."
+            } finally {
+                downloadProgress.value = null
             }
         }
     }

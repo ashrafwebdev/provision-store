@@ -20,31 +20,44 @@ object UpdateChecker {
 
     private val latestUrl = "https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases/latest"
 
-    /** Returns the newer release, or null if already up to date or the check fails. */
+    /**
+     * Returns the newer release, or null if already up to date.
+     * Throws if the check fails, for example when there is no internet.
+     */
     fun checkForUpdate(): UpdateInfo? {
-        return try {
-            val json = JSONObject(get(latestUrl))
-            val remoteCode = json.getString("tag_name").removePrefix("v").toInt()
-            if (remoteCode <= BuildConfig.VERSION_CODE) {
-                null
-            } else {
-                val assets = json.getJSONArray("assets")
-                (0 until assets.length())
-                    .map { assets.getJSONObject(it) }
-                    .firstOrNull { it.getString("name").endsWith(".apk") }
-                    ?.let { UpdateInfo(remoteCode, it.getString("browser_download_url")) }
-            }
-        } catch (e: Exception) {
-            null
-        }
+        val json = JSONObject(get(latestUrl))
+        val remoteCode = json.getString("tag_name").removePrefix("v").toInt()
+        if (remoteCode <= BuildConfig.VERSION_CODE) return null
+
+        val assets = json.getJSONArray("assets")
+        return (0 until assets.length())
+            .map { assets.getJSONObject(it) }
+            .firstOrNull { it.getString("name").endsWith(".apk") }
+            ?.let { UpdateInfo(remoteCode, it.getString("browser_download_url")) }
+            ?: throw IllegalStateException("The new release has no APK attached.")
     }
 
-    /** Downloads the APK into the app cache and returns the file. Call off the main thread. */
-    fun download(context: Context, update: UpdateInfo): File {
+    /**
+     * Downloads the APK into the app cache and returns the file. Call off the main thread.
+     * [onProgress] gets a fraction from 0 to 1, or -1 when the file size is unknown.
+     */
+    fun download(context: Context, update: UpdateInfo, onProgress: (Float) -> Unit): File {
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         val target = File(dir, "update-${update.versionCode}.apk")
-        openConnection(update.apkUrl).inputStream.use { input ->
-            target.outputStream().use { input.copyTo(it) }
+        val connection = openConnection(update.apkUrl)
+        val total = connection.contentLengthLong
+        connection.inputStream.use { input ->
+            target.outputStream().use { output ->
+                val buffer = ByteArray(64 * 1024)
+                var downloaded = 0L
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                    downloaded += read
+                    onProgress(if (total > 0) downloaded.toFloat() / total else -1f)
+                }
+            }
         }
         return target
     }

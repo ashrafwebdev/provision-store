@@ -1,6 +1,5 @@
 package com.provisionstore.app.ui
 
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -43,6 +43,8 @@ fun TodayScreen(vm: ShopViewModel) {
     val lines by vm.todayLines.collectAsState(initial = emptyList())
     val payments by vm.todayPayments.collectAsState(initial = emptyList())
     val updateStatus by vm.updateStatus.collectAsState()
+    val checking by vm.checking.collectAsState()
+    val progress by vm.downloadProgress.collectAsState()
     val context = LocalContext.current
     var restoreFrom by remember { mutableStateOf<Uri?>(null) }
     var message by remember { mutableStateOf("") }
@@ -90,11 +92,40 @@ fun TodayScreen(vm: ShopViewModel) {
         Spacer(Modifier.height(12.dp))
         Text("Data and updates", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        Button(onClick = { vm.checkForUpdates(silent = false) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Check for updates")
+
+        Button(
+            onClick = { vm.checkForUpdates(silent = false) },
+            enabled = !checking && progress == null,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (checking) "Checking..." else "Check for updates")
         }
-        if (updateStatus.isNotBlank()) Text(updateStatus, modifier = Modifier.padding(top = 4.dp))
-        Spacer(Modifier.height(8.dp))
+        if (checking) {
+            LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp))
+        }
+
+        progress?.let { fraction ->
+            val label = if (fraction < 0f) {
+                "Downloading update..."
+            } else {
+                "Downloading update... ${(fraction * 100).toInt()}%"
+            }
+            Text(label, modifier = Modifier.padding(top = 8.dp))
+            if (fraction < 0f) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 4.dp))
+            } else {
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            }
+        }
+
+        if (updateStatus.isNotBlank()) {
+            Text(updateStatus, modifier = Modifier.padding(top = 8.dp))
+        }
+
+        Spacer(Modifier.height(16.dp))
         OutlinedButton(
             onClick = {
                 try {
