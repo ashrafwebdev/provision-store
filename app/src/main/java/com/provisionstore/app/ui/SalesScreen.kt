@@ -13,11 +13,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -40,8 +45,8 @@ import com.provisionstore.app.data.CustomerWithBalance
 import com.provisionstore.app.data.Item
 import com.provisionstore.app.data.PaymentMode
 import com.provisionstore.app.util.money
-import com.provisionstore.app.util.parseQty
-import com.provisionstore.app.util.qty
+import com.provisionstore.app.util.perUnit
+import com.provisionstore.app.util.stockText
 import kotlinx.coroutines.launch
 
 @Composable
@@ -60,7 +65,7 @@ fun SalesScreen(vm: ShopViewModel) {
     val total = cart.sumOf { it.lineTotal }
     val shownItems = itemList.filter { search.isBlank() || it.name.contains(search, ignoreCase = true) }
 
-    // Quantity 0 or less removes the line from the cart.
+    // A quantity of 0 or less removes the line from the cart.
     fun setQty(item: Item, qty: Double) {
         val index = cart.indexOfFirst { it.item.id == item.id }
         if (qty <= 0) {
@@ -91,7 +96,8 @@ fun SalesScreen(vm: ShopViewModel) {
                                 Column(Modifier.weight(1f)) {
                                     Text(line.item.name)
                                     Text(
-                                        "${line.qty.qty()} ${line.item.unit} x ${line.item.sellPrice.money()}",
+                                        "${line.qty.stockText(line.item.unit)} x " +
+                                            line.item.sellPrice.perUnit(line.item.unit),
                                         style = MaterialTheme.typography.bodySmall,
                                     )
                                 }
@@ -106,7 +112,10 @@ fun SalesScreen(vm: ShopViewModel) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("Total ${total.money()}", style = MaterialTheme.typography.titleLarge)
-                        Button(onClick = { showCheckout = true }) { Text("Charge") }
+                        Button(onClick = { showCheckout = true }) {
+                            Icon(Icons.Filled.Payments, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
+                            Text("Charge")
+                        }
                     }
                 }
             }
@@ -117,6 +126,7 @@ fun SalesScreen(vm: ShopViewModel) {
             onValueChange = { search = it },
             label = { Text("Search item") },
             singleLine = true,
+            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         )
 
@@ -138,11 +148,11 @@ fun SalesScreen(vm: ShopViewModel) {
                         Column {
                             Text(item.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Stock ${item.stock.qty()} ${item.unit}",
+                                "In stock ${item.stock.stockText(item.unit)}",
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        Text("${item.sellPrice.money()} / ${item.unit}")
+                        Text(item.sellPrice.perUnit(item.unit))
                     }
                 }
             }
@@ -151,14 +161,16 @@ fun SalesScreen(vm: ShopViewModel) {
 
     pickedItem?.let { item ->
         val alreadyInCart = cart.find { it.item.id == item.id }?.qty ?: 0.0
-        InputDialog(
+        QuantityDialog(
             title = item.name,
-            label = "Quantity (${item.unit})",
-            initial = "1",
+            unit = item.unit,
+            pricePerUnit = item.sellPrice,
+            priceLabel = "Price",
+            // Counted items start at 1. Weighed items start empty so the quick buttons are used.
+            initial = if (item.unit == "kg" || item.unit == "litre") null else 1.0,
             confirmText = "Add",
-            number = true,
-            onConfirm = { text ->
-                parseQty(text)?.takeIf { it > 0 }?.let { setQty(item, alreadyInCart + it) }
+            onConfirm = { qty ->
+                setQty(item, alreadyInCart + qty)
                 pickedItem = null
             },
             onDismiss = { pickedItem = null },
@@ -166,14 +178,18 @@ fun SalesScreen(vm: ShopViewModel) {
     }
 
     editLine?.let { line ->
-        InputDialog(
+        QuantityDialog(
             title = line.item.name,
-            label = "Quantity (${line.item.unit}), 0 removes",
-            initial = line.qty.qty(),
-            confirmText = "Set",
-            number = true,
-            onConfirm = { text ->
-                parseQty(text)?.let { setQty(line.item, it) }
+            unit = line.item.unit,
+            pricePerUnit = line.item.sellPrice,
+            initial = line.qty,
+            confirmText = "Update",
+            onConfirm = { qty ->
+                setQty(line.item, qty)
+                editLine = null
+            },
+            onRemove = {
+                setQty(line.item, 0.0)
                 editLine = null
             },
             onDismiss = { editLine = null },
@@ -211,7 +227,10 @@ fun SalesScreen(vm: ShopViewModel) {
                         }
                         context.startActivity(Intent.createChooser(send, "Share bill"))
                     }
-                }) { Text("Share") }
+                }) {
+                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                    Text("Share")
+                }
             },
             dismissButton = { TextButton(onClick = { savedBillId = null }) { Text("Done") } },
         )

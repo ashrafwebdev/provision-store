@@ -8,7 +8,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -25,6 +33,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.provisionstore.app.ui.ItemsScreen
 import com.provisionstore.app.ui.KhataScreen
@@ -46,7 +55,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private val tabs = listOf("Sell", "Items", "Stock", "Khata", "Today")
+private data class Tab(val label: String, val icon: ImageVector)
+
+// Icons are from Material Icons (Apache 2.0).
+private val tabs = listOf(
+    Tab("Sell", Icons.Filled.ShoppingCart),
+    Tab("Items", Icons.Filled.Category),
+    Tab("Stock", Icons.Filled.Inventory2),
+    Tab("Khata", Icons.Filled.Book),
+    Tab("Today", Icons.Filled.CalendarToday),
+)
 
 @Composable
 fun AppRoot(vm: ShopViewModel = viewModel()) {
@@ -60,12 +78,12 @@ fun AppRoot(vm: ShopViewModel = viewModel()) {
     Scaffold(
         bottomBar = {
             NavigationBar {
-                tabs.forEachIndexed { index, label ->
+                tabs.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = tab == index,
                         onClick = { tab = index },
-                        icon = { Text(label.first().toString()) },
-                        label = { Text(label) },
+                        icon = { Icon(item.icon, contentDescription = item.label) },
+                        label = { Text(item.label) },
                     )
                 }
             }

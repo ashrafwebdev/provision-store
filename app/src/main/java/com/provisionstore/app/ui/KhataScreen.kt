@@ -12,7 +12,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +59,10 @@ fun KhataScreen(vm: ShopViewModel) {
         Column(Modifier.fillMaxSize().padding(16.dp)) {
             Text("Khata (credit)", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))
-            Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth()) { Text("Add customer") }
+            Button(onClick = { adding = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.PersonAdd, contentDescription = null, modifier = Modifier.padding(end = 6.dp))
+                Text("Add customer")
+            }
             Spacer(Modifier.height(8.dp))
             if (customerList.isEmpty()) {
                 Text("No customers yet.")
@@ -142,7 +151,10 @@ private fun CustomerDetail(vm: ShopViewModel, customer: CustomerWithBalance, onB
     BackHandler { onBack() }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        TextButton(onClick = onBack) { Text("Back") }
+        TextButton(onClick = onBack) {
+            Icon(Icons.Filled.ArrowBack, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+            Text("Back")
+        }
         Text(customer.name, style = MaterialTheme.typography.headlineSmall)
         if (customer.phone.isNotBlank()) Text(customer.phone)
         Spacer(Modifier.height(12.dp))
@@ -157,7 +169,10 @@ private fun CustomerDetail(vm: ShopViewModel, customer: CustomerWithBalance, onB
         )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { paying = true }) { Text("Record payment") }
+            Button(onClick = { paying = true }) {
+                Icon(Icons.Filled.Payments, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Record payment")
+            }
             OutlinedButton(onClick = {
                 scope.launch {
                     val text = vm.statementText(customer.id)
@@ -167,7 +182,10 @@ private fun CustomerDetail(vm: ShopViewModel, customer: CustomerWithBalance, onB
                     }
                     context.startActivity(Intent.createChooser(send, "Share statement"))
                 }
-            }) { Text("Share statement") }
+            }) {
+                Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Share statement")
+            }
         }
         Spacer(Modifier.height(12.dp))
         Text("History", style = MaterialTheme.typography.titleMedium)

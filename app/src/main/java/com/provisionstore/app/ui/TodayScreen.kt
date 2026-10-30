@@ -13,7 +13,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
@@ -98,6 +103,7 @@ fun TodayScreen(vm: ShopViewModel) {
             enabled = !checking && progress == null,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            Icon(Icons.Filled.SystemUpdate, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
             Text(if (checking) "Checking..." else "Check for updates")
         }
         if (checking) {
@@ -135,12 +141,18 @@ fun TodayScreen(vm: ShopViewModel) {
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Back up data") }
+        ) {
+            Icon(Icons.Filled.Backup, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            Text("Back up data")
+        }
         Spacer(Modifier.height(8.dp))
         OutlinedButton(
             onClick = { restorePicker.launch(arrayOf("*/*")) },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Restore from backup") }
+        ) {
+            Icon(Icons.Filled.Restore, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            Text("Restore from backup")
+        }
         if (message.isNotBlank()) Text(message, modifier = Modifier.padding(top = 4.dp))
         Spacer(Modifier.height(16.dp))
         Text(

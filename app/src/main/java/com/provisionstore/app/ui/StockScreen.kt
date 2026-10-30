@@ -10,7 +10,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -24,8 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.provisionstore.app.data.Item
-import com.provisionstore.app.util.parseQty
-import com.provisionstore.app.util.qty
+import com.provisionstore.app.util.quickAmounts
+import com.provisionstore.app.util.stockText
 
 @Composable
 fun StockScreen(vm: ShopViewModel) {
@@ -38,14 +42,28 @@ fun StockScreen(vm: ShopViewModel) {
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Stock", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            if (lowCount == 0) "All items are above their reorder level" else "$lowCount item(s) low on stock",
-            color = if (lowCount == 0) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                MaterialTheme.colorScheme.error
-            },
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (lowCount > 0) {
+                Icon(
+                    Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(end = 6.dp),
+                )
+            }
+            Text(
+                if (lowCount == 0) {
+                    "All items are above their reorder level"
+                } else {
+                    "$lowCount item(s) low on stock"
+                },
+                color = if (lowCount == 0) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+            )
+        }
         Spacer(Modifier.height(8.dp))
 
         LazyColumn(Modifier.weight(1f)) {
@@ -60,7 +78,7 @@ fun StockScreen(vm: ShopViewModel) {
                         Column(Modifier.weight(1f)) {
                             Text(item.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "Stock ${item.stock.qty()} ${item.unit}",
+                                "In stock ${item.stock.stockText(item.unit)}",
                                 color = if (low) {
                                     MaterialTheme.colorScheme.error
                                 } else {
@@ -68,7 +86,10 @@ fun StockScreen(vm: ShopViewModel) {
                                 },
                             )
                         }
-                        OutlinedButton(onClick = { addingTo = item }) { Text("Add stock") }
+                        OutlinedButton(onClick = { addingTo = item }) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                            Text("Add stock")
+                        }
                     }
                 }
             }
@@ -76,14 +97,15 @@ fun StockScreen(vm: ShopViewModel) {
     }
 
     addingTo?.let { item ->
-        InputDialog(
+        QuantityDialog(
             title = "Add stock: ${item.name}",
-            label = "Quantity received (${item.unit})",
-            initial = "",
+            unit = item.unit,
+            pricePerUnit = item.costPrice,
+            priceLabel = "Cost",
+            initial = if (quickAmounts(item.unit).isEmpty()) 1.0 else null,
             confirmText = "Add",
-            number = true,
-            onConfirm = { text ->
-                parseQty(text)?.takeIf { it > 0 }?.let { vm.addStock(item.id, it) }
+            onConfirm = { qty ->
+                vm.addStock(item.id, qty)
                 addingTo = null
             },
             onDismiss = { addingTo = null },
